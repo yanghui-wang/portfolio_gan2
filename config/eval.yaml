@@ -1,0 +1,22 @@
+metrics:
+  reconstruction:
+    - L_count
+    - L_concentration
+    - L_turnover
+  classification:
+    - macro_recall
+    - precision
+    - recall
+    - f1
+  behavior:
+    - factor_tilt_stability
+    - markowitz_proximity
+  counterfactual:
+    - strategy_swap
+    - strategy_preservation
+    - factor_exposure_drift
+
+reporting:
+  save_tables: true
+  save_figures: true
+  run_latent_visualization: true

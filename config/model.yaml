@@ -1,0 +1,32 @@
+latent_dim: 8
+num_assets: 500
+num_features: 8
+
+strategy_encoder:
+  char_lane_hidden: 128
+  ret_lane_hidden: 128
+  turnover_lane_hidden: 64
+  attention_heads: 4
+  dropout: 0.1
+
+portfolio_allocator:
+  hidden_dim: 256
+  output_mode: softmax
+  sparsity_temperature: 1.0
+
+discriminator:
+  hidden_dim: 256
+  depth: 3
+  gradient_penalty_lambda: 10.0
+
+market_generator:
+  latent_dim: 16
+  hidden_dim: 128
+  factor_names: [MKT, SMB, HML, UMD]
+
+loss:
+  lambda_replication: 1.0
+  lambda_synthetic: 1.0
+  lambda_exposure: 1.0
+  lambda_turnover: 0.0
+  lambda_concentration: 0.0

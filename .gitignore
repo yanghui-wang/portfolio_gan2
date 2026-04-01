@@ -1,0 +1,14 @@
+# Raw data
+raw/
+*.csv
+*.zip
+*.parquet
+
+# Logs
+*.log
+*.out
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

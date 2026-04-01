@@ -1,0 +1,16 @@
+project_root: .
+raw_dir: raw
+interim_dir: interim
+derived_dir: derived
+artifacts_dir: artifacts
+outputs_dir: outputs
+
+checkpoints_dir: artifacts/checkpoints
+scalers_dir: artifacts/scalers
+embeddings_dir: artifacts/embeddings
+
+logs_dir: outputs/logs
+tables_dir: outputs/tables
+figures_dir: outputs/figures
+diagnostics_dir: outputs/diagnostics
+reports_dir: outputs/reports

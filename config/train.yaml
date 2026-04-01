@@ -1,0 +1,49 @@
+seed: 42
+device: cuda
+
+training_mode: full_train
+epochs: 30
+batch_size: 32
+num_workers: 4
+pin_memory: true
+
+optimizer:
+  name: adam
+  lr_generator: 0.0001
+  lr_discriminator: 0.0001
+  betas: [0.9, 0.999]
+
+scheduler:
+  enabled: false
+
+adversarial:
+  discriminator_steps_per_generator_step: 3
+
+loss:
+  lambda_replication: 1.0
+  lambda_exposure: 1.0
+
+runtime:
+  gradient_clip_norm: 1.0
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  anomaly_detection: false
+
+dataset:
+  max_train_samples: 30000
+  max_val_samples: 3000
+  max_test_samples: 3000
+  holdings_chunksize: 250000
+  feature_columns: []
+
+logging:
+  log_interval_steps: 20
+  heartbeat_seconds: 60
+  validation_interval_steps: 500
+  tensorboard_enabled: true
+
+checkpoint:
+  save_every_n_steps: 1000
+  save_every_n_minutes: 10
+  save_each_epoch: true
+  resume_from: ""

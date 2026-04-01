@@ -1,0 +1,31 @@
+frequency: monthly
+sample_start: "2010-01-01"
+sample_end: "2024-12-31"
+
+split:
+  train_start: "2010-01-01"
+  train_end: "2018-12-31"
+  val_start: "2019-01-01"
+  val_end: "2019-12-31"
+  test_start: "2020-01-01"
+  test_end: "2024-12-31"
+
+filters:
+  min_months_holdings: 12
+  min_reported_weight_coverage: 0.75
+  min_in_universe_weight_share: 0.75
+  target_universe_size: 500
+
+identifiers:
+  fund_id: fund_id
+  stock_id: stock_id
+  date: date
+
+placeholders:
+  eligible_fund_months_file: raw/eligible_fund_months.csv
+  holdings_file: raw/holdings.csv.zip
+  fund_meta_file: raw/fund_metadata.parquet
+  stock_chars_file: raw/stock_characteristics.parquet
+  stock_returns_file: raw/stock_returns.parquet
+  factor_file: raw/carhart_factors.parquet
+  market_cap_file: raw/market_cap.parquet
