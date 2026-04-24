@@ -21,6 +21,10 @@ Every assumption must be labeled as:
 | A9 | Default training data path | Real-data tensors are built from eligible fund-month mappings + holdings + stock characteristics/returns; synthetic dataset remains as legacy utility only | CLOSE | Uses available WRDS exports, but full CRSP engineering details still being verified | Yes |
 | A10 | Eligible-fund-month fallback | Apply 75% filters at observation level then require >=12 eligible months per fund using `eligible_fund_months.csv` | CLOSE | Closest available implementation without full holdings table | Yes |
 | A11 | Fast debug subsampling | `smoke_test` / `debug_train` limit holdings chunks and sample caps for quick fault detection before full run | PROXY | Improves debuggability and runtime observability; not intended for headline results | No |
+| A12 | Frontier proximity | Approximate Markowitz optimal-proximity with a sampled long-only ex-post frontier and normalized risk-return distance | CLOSE | Paper intent is clear, but exact optimization details and constraints are not specified in scaffold inputs | Yes |
+| A13 | Counterfactual transfer metrics | Evaluate provided transfer artifacts with factor exposure deltas and structural deltas; do not generate transfers in evaluation | CLOSE | Matches evaluation need while keeping generation as a separate artifact-producing stage | Yes |
+| A14 | Lipper label matching | Attach style labels to fund-month artifacts using the latest available `lipper_class` for the same fund at or before the sample date | CLOSE | Avoids look-ahead when Lipper label dates are less frequent than monthly portfolio samples | Yes |
+| A15 | Carhart asset exposures | Estimate `market_beta`, `SMB`, `HML`, and `UMD` with rolling stock-level regressions when precomputed exposure columns are unavailable | CLOSE | Supplies paper-aligned factor tilt inputs from available returns/factor panels, but window and estimation choices are scaffold approximations | Yes |
 
 ## Governance
 

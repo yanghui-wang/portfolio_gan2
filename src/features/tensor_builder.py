@@ -151,10 +151,12 @@ def _build_feature_maps(
     stock_returns: pd.DataFrame,
     feature_cols: list[str],
     num_assets: int,
+    train_cfg: dict[str, Any],
 ) -> tuple[dict[pd.Timestamp, np.ndarray], dict[pd.Timestamp, np.ndarray]]:
     universe_lookup = universe_panel[["date", "stock_id", "asset_idx"]].copy()
     stock_col_chars = "permno" if "permno" in stock_chars.columns else "stock_id"
     stock_col_ret = "permno" if "permno" in stock_returns.columns else "stock_id"
+    transform_cfg = train_cfg.get("dataset", {})
 
     chars = stock_chars[[stock_col_chars, "date"] + [c for c in feature_cols if c in stock_chars.columns]].copy()
     chars[stock_col_chars] = _to_int_series(chars[stock_col_chars])
@@ -168,6 +170,9 @@ def _build_feature_maps(
     rets[stock_col_ret] = _to_int_series(rets[stock_col_ret])
     rets["date"] = _to_month_end(rets["date"])
     rets["ret"] = _safe_float(rets["ret"]).fillna(0.0)
+    return_clip = float(transform_cfg.get("return_clip_abs", 1.0))
+    if return_clip > 0:
+        rets["ret"] = rets["ret"].clip(lower=-return_clip, upper=return_clip)
 
     char_join = universe_lookup.merge(
         chars.rename(columns={stock_col_chars: "stock_id"}),
@@ -176,6 +181,7 @@ def _build_feature_maps(
     )
     for col in feature_cols:
         char_join[col] = _safe_float(char_join[col]).fillna(0.0)
+    char_join = _transform_feature_columns(char_join, feature_cols=feature_cols, cfg=transform_cfg)
 
     ret_join = universe_lookup.merge(
         rets.rename(columns={stock_col_ret: "stock_id"}),
@@ -198,6 +204,49 @@ def _build_feature_maps(
         r_by_date[pd.Timestamp(date)] = r
 
     return x_by_date, r_by_date
+
+
+def _transform_feature_columns(
+    frame: pd.DataFrame,
+    *,
+    feature_cols: list[str],
+    cfg: dict[str, Any],
+) -> pd.DataFrame:
+    """Make raw stock characteristics numerically safe for neural networks.
+
+    The raw WRDS-style panel can contain large scale variables such as market
+    capitalization. The model consumes dense tensors directly, so by default we
+    log-transform market cap-like columns and z-score each feature cross-sectionally
+    by month. This keeps the scaffold stable without changing the feature contract.
+    """
+
+    if frame.empty or not feature_cols:
+        return frame
+
+    out = frame.copy()
+    use_log_market_cap = bool(cfg.get("use_log_market_cap", True))
+    standardize = bool(cfg.get("standardize_features", True))
+    clip_abs = float(cfg.get("feature_clip_abs", 10.0))
+    eps = 1e-8
+
+    for col in feature_cols:
+        values = _safe_float(out[col]).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        if use_log_market_cap and col.lower() in {"mkt_cap", "market_cap", "me"}:
+            values = np.log1p(values.clip(lower=0.0))
+        out[col] = values
+
+    if standardize:
+        for col in feature_cols:
+            grouped = out.groupby("date", dropna=False)[col]
+            mean = grouped.transform("mean")
+            std = grouped.transform("std").replace(0.0, np.nan)
+            out[col] = ((out[col] - mean) / (std + eps)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+    if clip_abs > 0:
+        for col in feature_cols:
+            out[col] = out[col].clip(lower=-clip_abs, upper=clip_abs)
+
+    return out
 
 
 def _build_eligible_months(data_cfg: dict[str, Any], eligible_fund_months: pd.DataFrame) -> pd.DataFrame:
@@ -679,6 +728,7 @@ def build_real_dataset_bundle(
         stock_returns=stock_returns,
         feature_cols=feature_cols,
         num_assets=num_assets,
+        train_cfg=train_cfg,
     )
 
     eligible_months = _build_eligible_months(data_cfg, eligible_fund_months)

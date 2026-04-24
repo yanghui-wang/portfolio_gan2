@@ -35,6 +35,10 @@ dataset:
   max_test_samples: 3000
   holdings_chunksize: 250000
   feature_columns: []
+  standardize_features: true
+  use_log_market_cap: true
+  feature_clip_abs: 10.0
+  return_clip_abs: 1.0
 
 logging:
   log_interval_steps: 20

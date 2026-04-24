@@ -1,22 +1,96 @@
-metrics:
-  reconstruction:
-    - L_count
-    - L_concentration
-    - L_turnover
-  classification:
-    - macro_recall
-    - precision
-    - recall
-    - f1
-  behavior:
-    - factor_tilt_stability
-    - markowitz_proximity
-  counterfactual:
-    - strategy_swap
-    - strategy_preservation
-    - factor_exposure_drift
+evaluation:
+  model_name: portfolio_gan
+  run_id: unknown
+  prediction_source: model
+  split: test
+  holding_threshold: 0.0001
+  normalize_weights: true
+  require_full_metrics: false
+  factor_columns:
+    - market_beta
+    - SMB
+    - HML
+    - UMD
 
-reporting:
-  save_tables: true
-  save_figures: true
-  run_latent_visualization: true
+  columns:
+    fund_id: fund_id
+    date: date
+    asset_id: asset_id
+    w_true: w_true
+    w_pred: w_pred
+    w_prev: w_prev
+    label: style_label
+    model_name: model_name
+    run_id: run_id
+    split: split
+    prediction_source: prediction_source
+    return: ret
+    case_id: case_id
+    w_original: w_original
+    w_transferred: w_transferred
+    w_prev_transferred: w_prev_transferred
+
+  inputs:
+    portfolio_predictions: artifacts/evaluation/portfolio_predictions.parquet
+    representation_embeddings: artifacts/embeddings/strategy_embeddings.parquet
+    factor_exposures: raw/stock_characteristics.parquet
+    carhart_factors: raw/carhart_factors.parquet
+    asset_returns: raw/stock_returns.parquet
+    counterfactual_transfers: artifacts/evaluation/counterfactual_transfers.parquet
+
+  factor_exposure_estimation:
+    enabled: true
+    output_path: artifacts/evaluation/carhart_betas.parquet
+    lookback_periods: 36
+    min_periods: 24
+    ridge_penalty: 0.00000001
+    use_cache: true
+    asset_id_column: permno
+    date_column: date
+    return_column: ret
+    risk_free_column: rf
+    factor_column_map:
+      mktrf: market_beta
+      smb: SMB
+      hml: HML
+      umd: UMD
+
+  export:
+    enabled: true
+    splits:
+      - train
+      - val
+      - test
+    batch_size: 128
+
+  labels:
+    enabled: true
+    path: raw/lipper.csv
+    encoding: latin1
+    fund_id_column: crsp_fundno
+    date_column: caldt
+    source_label_column: lipper_class
+    output_column: style_label
+    merge_method: asof_backward
+
+  representation:
+    classifier: linear_svm
+    average_embeddings_over_time: false
+    train_split: train
+    eval_split: test
+    random_seed: 42
+
+  frontier:
+    enabled: true
+    method: mean_variance_long_only_random_frontier
+    weight_column: w_pred
+    num_random_portfolios: 1000
+    num_random_reference_portfolios: 200
+    covariance_shrinkage: 0.0
+    lookback_periods: 36
+    min_periods: 3
+    long_only: true
+    random_seed: 42
+
+  counterfactual:
+    enabled: true

@@ -1,0 +1,11 @@
+{
+  "accuracy": null,
+  "classifier": "",
+  "confusion_matrix": [],
+  "labels": [],
+  "macro_f1": null,
+  "macro_precision": null,
+  "macro_recall": null,
+  "reason": "no complete embedding rows after cleaning",
+  "status": "SKIPPED"
+}

@@ -82,9 +82,7 @@ class GANTrainer:
         self.ckpt_manager = CheckpointManager(artifacts_dir / "checkpoints")
         self.metrics_writer = MetricsWriter(outputs_dir / "metrics")
         self.use_amp = bool(train_cfg.get("runtime", {}).get("mixed_precision", True)) and device.type == "cuda"
-        self.use_amp = False
         self.scaler = GradScaler("cuda", enabled=self.use_amp)
-        self.scaler = GradScaler("cuda", enabled=False)
 
         tensorboard_enabled = train_cfg.get("logging", {}).get("tensorboard_enabled", True)
         self.tb_writer = (

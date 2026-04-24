@@ -5,6 +5,7 @@ from torch import autograd
 
 
 def reparameterize(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    logvar = torch.clamp(logvar, min=-10.0, max=10.0)
     std = torch.exp(0.5 * logvar)
     eps = torch.randn_like(std)
     return mu + eps * std

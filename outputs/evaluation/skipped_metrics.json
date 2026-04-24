@@ -1,0 +1,14 @@
+{
+  "skipped": [
+    {
+      "metric": "strategy_representation_linear_probe",
+      "reason": "no complete embedding rows after cleaning",
+      "status": "EXACT"
+    },
+    {
+      "metric": "counterfactual_transfer",
+      "reason": "missing counterfactual transfer artifact",
+      "status": "CLOSE"
+    }
+  ]
+}

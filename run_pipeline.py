@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 import math
 
-from src.evaluation.evaluator import run_evaluation_stub
+from src.evaluation.evaluator import run_evaluation
 from src.features.tensor_builder import (
     build_dataloader,
     build_model_input_index,
@@ -16,6 +16,7 @@ from src.ingest.data_loader import load_raw_frames
 from src.preprocess.sample_construction import construct_sample_panels
 from src.preprocess.variable_crosswalk import build_variable_crosswalk, write_crosswalk_outputs
 from src.training.trainer import GANTrainer
+from src.training.evaluation_exporter import export_evaluation_artifacts
 from src.utils.config import load_config_bundle, resolve_path
 from src.utils.logging_utils import build_logger
 from src.utils.runtime import collect_device_diagnostics, detect_device, diagnostics_as_dict, seed_everything
@@ -192,11 +193,20 @@ def main() -> None:
             num_features=int(dataset_bundle.train_dataset.x.shape[-1]),
         )
         trainer.fit(train_loader=train_loader, val_loader=val_loader if len(dataset_bundle.val_dataset) > 0 else None)
+        export_evaluation_artifacts(
+            trainer,
+            dataset_bundle,
+            project_root=project_root,
+            derived_dir=derived_dir,
+            eval_cfg=configs.eval,
+            run_id=run_id,
+            logger=logger,
+        )
         logger.info("Training stage complete")
 
     if "evaluate" in stages:
-        run_evaluation_stub(outputs_dir)
-        logger.info("Evaluation stage complete (scaffold)")
+        run_evaluation(project_root, configs.eval, outputs_dir, artifacts_dir=artifacts_dir, logger=logger)
+        logger.info("Evaluation stage complete")
 
 
 if __name__ == "__main__":
