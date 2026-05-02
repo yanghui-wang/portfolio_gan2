@@ -4,7 +4,7 @@ device: cuda
 training_mode: full_train
 epochs: 30
 batch_size: 32
-num_workers: 4
+num_workers: 16
 pin_memory: true
 
 optimizer:

@@ -6,6 +6,8 @@ evaluation:
   holding_threshold: 0.0001
   normalize_weights: true
   require_full_metrics: false
+  # Model type: 'carhart' (default 4-factor) or 'news_aware' (4 Carhart + 5 news factors)
+  model_type: news_aware
   factor_columns:
     - market_beta
     - SMB
@@ -31,16 +33,20 @@ evaluation:
     w_prev_transferred: w_prev_transferred
 
   inputs:
-    portfolio_predictions: artifacts/evaluation/portfolio_predictions.parquet
-    representation_embeddings: artifacts/embeddings/strategy_embeddings.parquet
+    portfolio_predictions: artifacts/news_aware/evaluation/portfolio_predictions_news_aware.parquet
+    representation_embeddings: artifacts/news_aware/embeddings/strategy_embeddings_news_aware.parquet
     factor_exposures: raw/stock_characteristics.parquet
     carhart_factors: raw/carhart_factors.parquet
     asset_returns: raw/stock_returns.parquet
-    counterfactual_transfers: artifacts/evaluation/counterfactual_transfers.parquet
+    counterfactual_transfers: artifacts/news_aware/evaluation/counterfactual_transfers_news_aware.parquet
+    # News factors for news_aware model (if model_type == news_aware)
+    news_factors: "../LLM news scoring/scores_monthly/news_factors_orthogonalized_2010_2024.csv"
+    
 
   factor_exposure_estimation:
     enabled: true
-    output_path: artifacts/evaluation/carhart_betas.parquet
+    output_path: artifacts/news_aware/evaluation/carhart_betas_news_aware.parquet
+    output_path_news_aware: artifacts/news_aware/evaluation/news_aware_betas_news_aware.parquet
     lookback_periods: 36
     min_periods: 24
     ridge_penalty: 0.00000001

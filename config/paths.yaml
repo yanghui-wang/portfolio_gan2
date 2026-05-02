@@ -2,15 +2,15 @@ project_root: .
 raw_dir: raw
 interim_dir: interim
 derived_dir: derived
-artifacts_dir: artifacts
-outputs_dir: outputs
+artifacts_dir: artifacts/news_aware
+outputs_dir: outputs/news_aware
 
-checkpoints_dir: artifacts/checkpoints
-scalers_dir: artifacts/scalers
-embeddings_dir: artifacts/embeddings
+checkpoints_dir: artifacts/news_aware/checkpoints
+scalers_dir: artifacts/news_aware/scalers
+embeddings_dir: artifacts/news_aware/embeddings
 
-logs_dir: outputs/logs
-tables_dir: outputs/tables
-figures_dir: outputs/figures
-diagnostics_dir: outputs/diagnostics
-reports_dir: outputs/reports
+logs_dir: outputs/news_aware/logs
+tables_dir: outputs/news_aware/tables
+figures_dir: outputs/news_aware/figures
+diagnostics_dir: outputs/news_aware/diagnostics
+reports_dir: outputs/news_aware/reports

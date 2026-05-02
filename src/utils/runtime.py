@@ -28,8 +28,13 @@ def seed_everything(seed: int) -> None:
 def detect_device(preferred: str = "auto") -> torch.device:
     if preferred == "cpu":
         return torch.device("cpu")
-    if preferred == "cuda" and torch.cuda.is_available():
-        return torch.device("cuda")
+    if preferred.startswith("cuda"):
+        # Handle "cuda", "cuda:0", "cuda:1", etc.
+        if torch.cuda.is_available():
+            return torch.device(preferred)
+        else:
+            # CUDA not available, fall back to CPU
+            return torch.device("cpu")
     if preferred == "auto" and torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")

@@ -16,6 +16,7 @@ from src.evaluation.frontier import (
     frontier_by_sample_columns,
 )
 from src.evaluation.factor_exposures import build_or_load_carhart_factor_exposures
+from src.evaluation.factor_exposures_news_aware import build_or_load_news_aware_factor_exposures
 from src.evaluation.io import (
     merge_factor_exposures,
     normalize_factor_frame,
@@ -51,6 +52,20 @@ from src.evaluation.metrics_representation import (
 )
 
 
+CARHART_FACTOR_COLUMNS = ["market_beta", "SMB", "HML", "UMD"]
+NEWS_AWARE_FACTOR_COLUMNS = [
+    "market_beta",
+    "SMB",
+    "HML",
+    "UMD",
+    "ortho_sentiment",
+    "ortho_risk",
+    "ortho_uncertainty",
+    "ortho_macro_credit_pressure",
+    "ortho_corporate_market_activity",
+]
+
+
 DEFAULT_EVALUATION_CONFIG: dict[str, Any] = {
     "model_name": "portfolio_gan",
     "run_id": "unknown",
@@ -59,7 +74,8 @@ DEFAULT_EVALUATION_CONFIG: dict[str, Any] = {
     "holding_threshold": 0.0001,
     "normalize_weights": True,
     "require_full_metrics": False,
-    "factor_columns": ["market_beta", "SMB", "HML", "UMD"],
+    "model_type": "carhart",
+    "factor_columns": CARHART_FACTOR_COLUMNS,
     "columns": {
         "fund_id": "fund_id",
         "date": "date",
@@ -85,10 +101,12 @@ DEFAULT_EVALUATION_CONFIG: dict[str, Any] = {
         "carhart_factors": "raw/carhart_factors.parquet",
         "asset_returns": "raw/stock_returns.parquet",
         "counterfactual_transfers": "artifacts/evaluation/counterfactual_transfers.parquet",
+        "news_factors": "../../LLM news scoring/scores_monthly/news_factors_orthogonalized_2010_2024.csv",
     },
     "factor_exposure_estimation": {
         "enabled": True,
         "output_path": "artifacts/evaluation/carhart_betas.parquet",
+        "output_path_news_aware": "artifacts/evaluation/news_aware_betas.parquet",
         "lookback_periods": 36,
         "min_periods": 24,
         "ridge_penalty": 1e-8,
@@ -178,7 +196,7 @@ def run_evaluation(
         "split": str(cfg.get("split", "")),
     }
 
-    paths = _evaluation_paths(eval_dir)
+    paths = _evaluation_paths(eval_dir, cfg=cfg)
     portfolio_df = pd.DataFrame()
     portfolio_metrics = pd.DataFrame(columns=portfolio_metric_columns())
     portfolio_summary = pd.DataFrame(columns=metric_summary_columns())
@@ -375,6 +393,7 @@ def _run_frontier(
             columns=columns,
             cfg=frontier_cfg,
             normalize_weights=bool(cfg.get("normalize_weights", True)),
+            logger=logger,
         )
         if by_sample.empty:
             _skip(skipped, logger, "markowitz_optimal_proximity", FRONTIER_STATUS, "no valid return windows")
@@ -429,6 +448,17 @@ def _build_evaluation_cfg(eval_cfg: dict[str, Any]) -> dict[str, Any]:
     cfg = deepcopy(DEFAULT_EVALUATION_CONFIG)
     user_cfg = eval_cfg.get("evaluation", eval_cfg)
     _deep_update(cfg, user_cfg)
+    
+    # Dynamically set factor_columns based on model_type
+    model_type = str(cfg.get("model_type", "carhart")).lower()
+    if model_type not in {"carhart", "news_aware"}:
+        raise ValueError(f"Unsupported model_type: {model_type}. Expected 'carhart' or 'news_aware'.")
+
+    if model_type == "news_aware":
+        cfg["factor_columns"] = NEWS_AWARE_FACTOR_COLUMNS
+    else:
+        cfg["factor_columns"] = CARHART_FACTOR_COLUMNS
+    
     return cfg
 
 
@@ -440,6 +470,35 @@ def _load_factor_exposure_frame(
     factor_columns: list[str],
     logger: logging.Logger,
 ) -> pd.DataFrame:
+    model_type = str(cfg.get("model_type", "carhart")).lower()
+    
+    if model_type == "news_aware":
+        return _load_news_aware_factor_exposure_frame(
+            project_root=project_root,
+            cfg=cfg,
+            columns=columns,
+            factor_columns=factor_columns,
+            logger=logger,
+        )
+    else:
+        return _load_carhart_factor_exposure_frame(
+            project_root=project_root,
+            cfg=cfg,
+            columns=columns,
+            factor_columns=factor_columns,
+            logger=logger,
+        )
+
+
+def _load_carhart_factor_exposure_frame(
+    *,
+    project_root: Path,
+    cfg: dict[str, Any],
+    columns: dict[str, str],
+    factor_columns: list[str],
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """Load standard 4-factor Carhart exposures."""
     factor_df, factor_path = read_optional_table(project_root, cfg["inputs"].get("factor_exposures"))
     factor_df = normalize_factor_frame(
         factor_df,
@@ -488,6 +547,62 @@ def _load_factor_exposure_frame(
     return factor_df
 
 
+def _load_news_aware_factor_exposure_frame(
+    *,
+    project_root: Path,
+    cfg: dict[str, Any],
+    columns: dict[str, str],
+    factor_columns: list[str],
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """Load 9-factor exposures: 4 Carhart + 5 orthogonalized news factors."""
+    estimate_cfg = dict(cfg.get("factor_exposure_estimation", {}))
+    if not bool(estimate_cfg.get("enabled", True)):
+        logger.warning("factor_exposure_estimation disabled; cannot load news_aware factors")
+        return pd.DataFrame()
+
+    returns, returns_path = read_optional_table(project_root, cfg["inputs"].get("asset_returns"))
+    carhart, carhart_path = read_optional_table(project_root, cfg["inputs"].get("carhart_factors"))
+    news_factors_path = cfg["inputs"].get("news_factors")
+    
+    if returns.empty or carhart.empty:
+        logger.warning(
+            "Cannot estimate news-aware factors; returns_path=%s carhart_path=%s",
+            returns_path,
+            carhart_path,
+        )
+        return pd.DataFrame()
+
+    try:
+        betas = build_or_load_news_aware_factor_exposures(
+            project_root=project_root,
+            stock_returns=returns,
+            carhart_factors=carhart,
+            news_factors_path=news_factors_path,
+            cfg=estimate_cfg,
+        )
+        betas = normalize_factor_frame(
+            betas,
+            columns_cfg=columns,
+            factor_columns=factor_columns,
+            factor_aliases=cfg.get("factor_aliases", {}),
+        )
+        if betas.empty:
+            logger.warning("News-aware factor estimation produced no rows")
+            return pd.DataFrame()
+
+        missing = [factor for factor in factor_columns if factor not in betas.columns]
+        if missing:
+            logger.warning("News-aware factor frame missing columns: %s", missing)
+            return pd.DataFrame()
+
+        logger.info("Loaded news-aware 9-factor exposures (4 Carhart + 5 news)")
+        return betas
+    except Exception as exc:
+        logger.error("Error loading news-aware factors: %s", str(exc))
+        return pd.DataFrame()
+
+
 def _deep_update(base: dict[str, Any], updates: dict[str, Any]) -> None:
     for key, value in updates.items():
         if isinstance(value, dict) and isinstance(base.get(key), dict):
@@ -521,20 +636,25 @@ def _empty_representation_metrics(reason: str) -> dict[str, Any]:
     }
 
 
-def _evaluation_paths(eval_dir: Path) -> dict[str, Path]:
+def _evaluation_paths(eval_dir: Path, *, cfg: dict[str, Any]) -> dict[str, Path]:
+    suffix = "_news_aware" if str(cfg.get("model_type", "carhart")).lower() == "news_aware" else ""
+
+    def named(base: str, ext: str) -> Path:
+        return eval_dir / f"{base}{suffix}.{ext}"
+
     return {
-        "portfolio_by_sample": eval_dir / "portfolio_metrics_by_sample.parquet",
-        "portfolio_summary": eval_dir / "portfolio_metrics_summary.csv",
-        "representation_metrics": eval_dir / "representation_metrics.json",
-        "representation_per_class": eval_dir / "representation_per_class.csv",
-        "stability_by_fund": eval_dir / "stability_by_fund.parquet",
-        "stability_summary": eval_dir / "stability_summary.csv",
-        "frontier_by_sample": eval_dir / "frontier_metrics_by_sample.parquet",
-        "frontier_summary": eval_dir / "frontier_summary.csv",
-        "counterfactual_by_case": eval_dir / "counterfactual_metrics_by_case.parquet",
-        "counterfactual_summary": eval_dir / "counterfactual_summary.csv",
-        "skipped": eval_dir / "skipped_metrics.json",
-        "report": eval_dir / "evaluation_report.md",
+        "portfolio_by_sample": named("portfolio_metrics_by_sample", "parquet"),
+        "portfolio_summary": named("portfolio_metrics_summary", "csv"),
+        "representation_metrics": named("representation_metrics", "json"),
+        "representation_per_class": named("representation_per_class", "csv"),
+        "stability_by_fund": named("stability_by_fund", "parquet"),
+        "stability_summary": named("stability_summary", "csv"),
+        "frontier_by_sample": named("frontier_metrics_by_sample", "parquet"),
+        "frontier_summary": named("frontier_summary", "csv"),
+        "counterfactual_by_case": named("counterfactual_metrics_by_case", "parquet"),
+        "counterfactual_summary": named("counterfactual_summary", "csv"),
+        "skipped": named("skipped_metrics", "json"),
+        "report": named("evaluation_report", "md"),
     }
 
 

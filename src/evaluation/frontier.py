@@ -103,6 +103,7 @@ def compute_frontier_metrics(
     columns: Mapping[str, str],
     cfg: Mapping[str, Any],
     normalize_weights: bool,
+    logger: Any | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Compute Markowitz optimal-proximity approximation for generated portfolios."""
 
@@ -156,8 +157,11 @@ def compute_frontier_metrics(
     }
     sorted_return_dates = sorted(returns_by_date.keys())
     date_groups = p.dropna(subset=[date_col]).groupby(date_col, sort=True)
+    total_dates = len(date_groups)
+    if logger is not None:
+        logger.info("Frontier metrics starting: %s portfolio dates, %s return dates", total_dates, len(sorted_return_dates))
 
-    for date, date_portfolios in date_groups:
+    for date_index, (date, date_portfolios) in enumerate(date_groups, start=1):
         window_dates = [d for d in sorted_return_dates if d <= pd.Timestamp(date)]
         if lookback > 0:
             window_dates = window_dates[-lookback:]
@@ -235,6 +239,14 @@ def compute_frontier_metrics(
                     "random_reference_type": reference_type,
                     "status": FRONTIER_STATUS,
                 }
+            )
+
+        if logger is not None and (date_index == 1 or date_index % 10 == 0 or date_index == total_dates):
+            logger.info(
+                "Frontier metrics progress: %s/%s dates processed, rows=%s",
+                date_index,
+                total_dates,
+                len(rows),
             )
 
     by_sample = pd.DataFrame(rows, columns=frontier_by_sample_columns())

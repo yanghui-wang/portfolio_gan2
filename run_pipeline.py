@@ -34,6 +34,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--training-mode", type=str, default="")
     parser.add_argument("--epochs", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=0)
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="",
+        choices=["", "carhart", "news_aware"],
+        help="Override evaluation model_type from config/eval.yaml",
+    )
     return parser.parse_args()
 
 
@@ -76,6 +83,13 @@ def main() -> None:
         configs.train["epochs"] = int(args.epochs)
     if args.batch_size > 0:
         configs.train["batch_size"] = int(args.batch_size)
+
+    if args.model_type:
+        # eval config may be either nested under 'evaluation' or flat; support both.
+        if isinstance(configs.eval.get("evaluation"), dict):
+            configs.eval["evaluation"]["model_type"] = args.model_type
+        else:
+            configs.eval["model_type"] = args.model_type
 
     checkpoint_cfg = configs.train.setdefault("checkpoint", {})
     resume_from = checkpoint_cfg.get("resume_from", "")
